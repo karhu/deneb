@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+deneb.so
+deneb.dylib
+deneb.dll
+deneb.a
+deneb.lib
+deneb-test-*
+*.exe
+*.o
+*.obj
+*.lst
+*.dll
+external/SDL2-2.0.8/

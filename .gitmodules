@@ -1,0 +1,9 @@
+[submodule "external/ErupteD"]
+	path = external/ErupteD
+	url = git@github.com:karhu/ErupteD.git
+[submodule "external/DerelictUtil"]
+	path = external/DerelictUtil
+	url = git@github.com:karhu/DerelictUtil.git
+[submodule "external/DerelictSDL2"]
+	path = external/DerelictSDL2
+	url = https://github.com/karhu/DerelictSDL2.git

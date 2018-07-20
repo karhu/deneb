@@ -1,0 +1,29 @@
+{
+	"name": "deneb",
+	"authors": [
+		"Adrian Blumer"
+	],
+	"description": "rendering engine",
+	"copyright": "Copyright © 2018, Adrian Blumer",
+	"license": "proprietary",
+	"dependencies": {
+		"derelict-sdl2": {
+			"path": "external/DerelictSDL2"
+		},
+		"erupted": {
+			"path": "external/ErupteD"
+		}
+	},
+	"subConfigurations": {
+			"derelict-sdl2": "derelict-sdl2-static"
+	},
+	"libs": [
+		"external/SDL2-2.0.8/lib/x64/sdl2"
+	],
+	"copyFiles": ["external/SDL2-2.0.8/lib/x64/sdl2.dll"],
+	"buildTypes": {
+		"betterC": {
+			"dflags": ["-betterC"]
+		}
+	}
+}
