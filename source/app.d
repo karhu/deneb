@@ -1,17 +1,15 @@
 import core.stdc.stdio : printf;
-// import derelict.sdl2.sdl;
-
 import core.stdc.stdlib;
 import core.stdc.string: memcpy;
 
-import erupted.vulkan_lib_loader;
-import erupted;
-
-import deneb.unique: Unique, SomeInterface;
+import deneb.unique: Unique;
 
 import deneb.allocator: Mallocator;
 
+import deneb.vulkan: runVulkanTest;
+
 import std.traits;
+import std.array: join;
 
 struct A {
   this(float value) {
@@ -23,6 +21,72 @@ struct A {
   }
 
   float floatValue;
+}
+
+interface SomeInterface {
+  void foo();
+  int bar();
+
+  bool yes(int number);
+  bool no(string message, int number);
+}
+
+void printMemberFunctions(T)() {
+  printf("__memberFunctionsBegin \n");
+
+  foreach (name; __traits(allMembers, T)) {
+    import core.stdc.stdio;
+    mixin("alias member = " ~ T.stringof ~ "." ~ name ~ ";");
+
+    alias paramNames = ParameterIdentifierTuple!member;
+    alias paramTypes = ParameterTypeTuple!member;
+
+    string[] params;
+
+
+
+    const(char)* str = ReturnType!member.stringof ~ " " ~ name ~ "(";
+
+
+    // const(char)* str = member_str;
+    printf("member: %s\n", str);
+
+    // printf(" arity %i\n", arity!member);
+
+    // foreach (paramName ; paramNames) {
+    //   const(char)* paramName_c = paramName;
+    //   printf("  %s\n", paramName_c);
+    // }
+
+    import std.range: iota;
+
+    // foreach (enum i; 0 .. arity!member) {
+    //   const(char)* paramName_c = paramNames[i];
+    //   const(char)* paramType_c = paramTypes[i].stringof;
+    //   printf("  %s %s\n", paramType_c, paramName_c);
+    // }
+
+    // foreach (enum j; 0 .. paramNames.length) {
+    //   // printf("%i", j);
+
+    //   // static if (j < paramNames.length) {
+    //     const(char)* paramName_c = paramNames[j];
+    //     printf("  %s\n", paramType_c, paramName_c);
+    //   // }
+
+
+    //   // const(char)* paramType_c = paramTypes[j].stringof;
+    //   // printf("  %s %s\n", paramType_c, paramName_c);
+    // }
+
+    static if (arity!member > 0) {
+      // foreach (paramZip; zip(paramTypes, paramNames)) {
+
+      // }
+    }
+  }
+
+  printf("__memberFunctionsEnd \n");
 }
 
 void run() {
@@ -45,93 +109,24 @@ void run() {
   SomeInterface inter = null;
 
   printf("__traits begin\n");
-  foreach (m; __traits(allMembers, Mallocator)) {
+  foreach (member_str; __traits(allMembers, Mallocator)) {
     import core.stdc.stdio;
-    const(char)* str = m;
-    printf("member: %s\n", str);
+    const(char)* member_cstr = member_str;
+    printf("member: %s\n", member_cstr);
   }
   printf("__traits end\n");
+
+  printMemberFunctions!SomeInterface;
 
   // auto ua = Unique!A(42.0f);
 
   // SDL test
 
   // ct.tst();
-
 }
-
-// void vulkanTest() {
-//    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-//     printf("could not initialize sdl2: %s\n", SDL_GetError());
-//     return;
-//   }
-
-//   auto window = SDL_CreateWindow(
-//     "hello_sdl2",
-    // SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-//     1280, 720,
-//     SDL_WINDOW_SHOWN
-//   );
-
-//   if (window == null) {
-//     printf("could not create window: %s\n", SDL_GetError());
-//     return;
-//   }
-
-//   auto screenSurface = SDL_GetWindowSurface(window);
-//   // SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface.format, 0xFF, 0xFF, 0xFF));
-//   SDL_UpdateWindowSurface(window);
-//   SDL_Delay(100);
-
-// 	// load global level functions
-// 	loadGlobalLevelFunctions();
-
-//   VkApplicationInfo appInfo = {
-// 		pApplicationName: "Vulkan Test",
-// 		apiVersion: VK_MAKE_VERSION(1, 0, 2),
-// 	};
-
-//   VkInstanceCreateInfo instInfo = {
-// 		pApplicationInfo: &appInfo,
-// 	};
-
-//   VkInstance instance;
-// 	auto res = vkCreateInstance(&instInfo, null, &instance);
-
-//   if(res == VkResult.VK_SUCCESS) {
-//     printf("Vulkan Success \n");
-//   } else {
-//     printf("Vulkan Failure \n");
-//   }
-
-//   loadInstanceLevelFunctions(instance);
-
-//   uint numPhysDevices = 4;
-//   VkPhysicalDevice[4] physDevices;
-// 	res = vkEnumeratePhysicalDevices(instance, &numPhysDevices, physDevices.ptr);
-
-//   if(res == VkResult.VK_SUCCESS) {
-//     printf("Vulkan Success \n");
-//   } else {
-//     printf("Vulkan Failure \n");
-//   }
-
-//   printf("numPhysDevices: %i\n", numPhysDevices);
-
-//   for (auto i = 0; i< numPhysDevices; i++) {
-//     VkPhysicalDeviceProperties properties;
-// 		vkGetPhysicalDeviceProperties(physDevices[i], &properties);
-//     printf("Physical device %i: %s \n", i, properties.deviceName.ptr);
-//   }
-
-//   SDL_Delay(100);
-
-//   SDL_DestroyWindow(window);
-//   SDL_Quit();
-// }
 
 extern(C) void main()
 {
   run();
-  // vulkanTest();
+  runVulkanTest();
 }
