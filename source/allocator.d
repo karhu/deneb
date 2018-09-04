@@ -17,7 +17,7 @@ struct Mallocator {
     free(ptr);
   }
 
-  static immutable IAllocatorFunctions __IAllocatorFunctions = {
+  private static immutable IAllocatorFunctions __IAllocatorFunctions = {
     allocate: function void*(void* _self, u32 byteSize) {
       auto self = cast(Mallocator*) _self;
       return self.allocate(byteSize);

@@ -15,6 +15,14 @@ alias int32 = int;
 private void vkAssert(VkResult result) {
   if (result != VkResult.VK_SUCCESS) {
     printf("Vulkan Failure \n");
+    exit(-1);
+  }
+}
+
+private void vkAssert(SDL_bool result) {
+  if (!result) {
+    printf("Vulkan Failure \n");
+    exit(-1);
   }
 }
 
@@ -22,7 +30,9 @@ private void vkAssert(VkResult result) {
  *  vulkan test function
  */
 void runVulkanTest() {
-   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  printf("\nVULKAN TEST\n==============\n");
+
+  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     printf("could not initialize sdl2: %s\n", SDL_GetError());
     return;
   }
@@ -49,12 +59,17 @@ void runVulkanTest() {
   if (!SDL_Vulkan_GetInstanceExtensions(window, &requiredExtensionsCount, &requiredExtensions[0])) {
     printf("error: SDL_Vulkan_GetInstanceExtensions\n");
     printf(" %s \n", SDL_GetError());
+  } else if (requiredExtensionsCount >= 16) {
+    printf("error: too many required extensions\n");
+    exit(-1);
   } else {
+    requiredExtensions[requiredExtensionsCount++] = VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
     printf("requiredExtensionsCount: %i \n", requiredExtensionsCount);
     for (auto i = 0 ; i < requiredExtensionsCount; i++) {
       printf("- %s\n", requiredExtensions[i]);
     }
   }
+
 
   SDL_Delay(100);
 
@@ -66,19 +81,55 @@ void runVulkanTest() {
 		apiVersion: VK_MAKE_VERSION(1, 0, 2),
 	};
 
+  ConstCStr[1] validationLayers = ["VK_LAYER_LUNARG_standard_validation"];
+  const auto validationLayersCount = 1;
+
   VkInstanceCreateInfo instInfo = {
 		pApplicationInfo: &appInfo,
+
     enabledExtensionCount: requiredExtensionsCount,
-    ppEnabledExtensionNames: &requiredExtensions[0]
+    ppEnabledExtensionNames: &requiredExtensions[0],
+
+    enabledLayerCount: validationLayersCount,
+    ppEnabledLayerNames: &validationLayers[0]
 	};
 
   VkInstance instance;
 	vkAssert(vkCreateInstance(&instInfo, null, &instance));
+
+  // load instance level functions
   loadInstanceLevelFunctions(instance);
 
-  verbosePrint(instance);
+  // register debug message callback
+  VkDebugReportCallbackCreateInfoEXT callbackCreateInfo = {
+    flags:  VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+            VK_DEBUG_REPORT_DEBUG_BIT_EXT |
+            VK_DEBUG_REPORT_ERROR_BIT_EXT |
+            VK_DEBUG_REPORT_WARNING_BIT_EXT |
+            VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
+    pfnCallback: &MyDebugReportCallback,
+  };
 
-  selectDevice(instance);
+  VkDebugReportCallbackEXT callback;
+  vkAssert(vkCreateDebugReportCallbackEXT(instance, &callbackCreateInfo, null, &callback));
+
+  printf("before vkDebugReportMessageEXT\n");
+  vkDebugReportMessageEXT(
+    instance,
+    0,
+    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT,
+    0,
+    0,
+    0,
+    null,
+    "hello vulkan message");
+  printf("after vkDebugReportMessageEXT\n");
+
+  // verbosePrint(instance);
+
+  DeviceContext deviceContext = selectDevice(instance);
+
+  // createSurface(instance, window);
 
   SDL_Delay(100);
 
@@ -86,20 +137,41 @@ void runVulkanTest() {
   SDL_Quit();
 }
 
-private struct GraphicsDeviceSelection {
-  VkPhysicalDevice physicalDevice;
-  VkPhysicalDeviceProperties physicalDeviceProperties;
-  uint32 graphicsQueueFamilyIndex;
+extern(Windows) nothrow @nogc VkBool32 MyDebugReportCallback  (
+    VkDebugReportFlagsEXT       flags,
+    VkDebugReportObjectTypeEXT  objectType,
+    uint64_t                    object,
+    size_t                      location,
+    int32_t                     messageCode,
+    const char*                 pLayerPrefix,
+    const char*                 pMessage,
+    void*                       pUserData)
+{
+    printf("VK: %s \n\n", pMessage);
+    return VK_FALSE;
 }
 
-private GraphicsDeviceSelection selectDevice(ref VkInstance instance) {
+private void createSurface(ref VkInstance instance, SDL_Window* window) {
+  VkSurfaceKHR surface;
+  vkAssert(SDL_Vulkan_CreateSurface(window, instance, &surface));
+}
+
+private struct DeviceContext {
+  VkPhysicalDevice physicalDevice;
+  VkDevice logicalDevice;
+  VkPhysicalDeviceProperties physicalDeviceProperties;
+  uint32 graphicsQueueFamilyIndex;
+  VkQueue graphicsQueue;
+}
+
+private DeviceContext selectDevice(ref VkInstance instance) {
   // load up to 4 physical devices
   uint32 numPhysicalDevices = 4;
   VkPhysicalDevice[4] physicalDevices;
 	vkAssert(vkEnumeratePhysicalDevices(instance, &numPhysicalDevices, physicalDevices.ptr));
 
-  GraphicsDeviceSelection discreteSelection;
-  GraphicsDeviceSelection integratedSelection;
+  DeviceContext discreteSelection;
+  DeviceContext integratedSelection;
   bool discreteGPUFound;
   bool integratedGPUFound;
 
@@ -154,49 +226,51 @@ private GraphicsDeviceSelection selectDevice(ref VkInstance instance) {
     assert(false);
   }
 
-  const auto selectedPhysicalDevice = discreteGPUFound ? &discreteSelection : &integratedSelection;
+  auto context = discreteGPUFound ? &discreteSelection : &integratedSelection;
+
+    printf(
+      "selectedQueueFamilyIndex: %i\n",
+      context.graphicsQueueFamilyIndex,
+    );
 
   const float[1] priorities = [ 1.0f ];
-  VkDeviceQueueCreateInfo queueCreateInfo;
-    queueCreateInfo.queueFamilyIndex = selectedPhysicalDevice.graphicsQueueFamilyIndex,
-    queueCreateInfo.queueCount = 1,
-    queueCreateInfo.pQueuePriorities = priorities.ptr;
+  const VkDeviceQueueCreateInfo queueCreateInfo = {
+    pNext: null,
+    flags: 0,
+    queueFamilyIndex: context.graphicsQueueFamilyIndex,
+    queueCount: 1,
+    pQueuePriorities: &priorities[0]
+  };
 
-    const ConstCStr[1] enabledExtensions = [ VK_KHR_SWAPCHAIN_EXTENSION_NAME ];
-    VkDeviceCreateInfo deviceCreateInfo;
-      deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-      deviceCreateInfo.pNext = null;
-      deviceCreateInfo.flags = 0;
-      deviceCreateInfo.queueCreateInfoCount = 1;
-      deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-      deviceCreateInfo.enabledExtensionCount = 1;
-      deviceCreateInfo.ppEnabledExtensionNames = enabledExtensions.ptr;
-      deviceCreateInfo.pEnabledFeatures = null;
+  const ConstCStr[1] enabledExtensions = [ VK_KHR_SWAPCHAIN_EXTENSION_NAME ];
+  VkDeviceCreateInfo deviceCreateInfo;
+    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCreateInfo.pNext = null;
+    deviceCreateInfo.flags = 0;
+    deviceCreateInfo.queueCreateInfoCount = 1;
+    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+    deviceCreateInfo.enabledExtensionCount = 1;
+    deviceCreateInfo.ppEnabledExtensionNames = &enabledExtensions[0];
+    deviceCreateInfo.pEnabledFeatures = null;
 
-    VkDevice logicalDevice;
+  vkAssert(vkCreateDevice(
+    context.physicalDevice,
+    &deviceCreateInfo,
+    null,
+    &context.logicalDevice
+  ));
 
-    vkAssert(vkCreateDevice(selectedPhysicalDevice, &deviceCreateInfo, null, &logicalDevice));
+  VkQueue tmpQueue;
 
-      // result = vkCreateDevice(physicalDevice, &deviceInfo, nullptr, &logicalDevice);
-      // if (result != VK_SUCCESS) {
-      //   std::cout << "[ERROR]" << "[vkCreateDevice]" << " Failed." << std::endl;
-      //   return nullptr;
-      // } else {
-      //   std::cout << "[SUCCESS]" << "[vkCreateDevice]" << std::endl;
-      //   vulkan.graphicsDevice = logicalDevice;
-      //   vulkan.graphicsDevicePhysical = physicalDevice;
-      // }
-
-      // vkGetDeviceQueue(vulkan.graphicsDevice, queueFamilyIndex, 0, &vulkan.graphicsQueue);
-      // vulkan.graphicsQueueIndex = queueFamilyIndex;
-
-
-  if (discreteGPUFound) {
-    return discreteSelection;
-  } else if (integratedGPUFound) {
-    return integratedSelection;
-  }
-  assert(false);
+  printf("before vkGetDeviceQueue\n");
+  vkGetDeviceQueue(
+    context.logicalDevice,
+    context.graphicsQueueFamilyIndex,
+    0,
+    &tmpQueue
+  );
+  printf("after vkGetDeviceQueue\n");
+  return *context;
 }
 
 private void verbosePrint(ref VkInstance instance) {
