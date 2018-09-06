@@ -113,21 +113,9 @@ void runVulkanTest() {
   VkDebugReportCallbackEXT callback;
   vkAssert(vkCreateDebugReportCallbackEXT(instance, &callbackCreateInfo, null, &callback));
 
-  printf("before vkDebugReportMessageEXT\n");
-  vkDebugReportMessageEXT(
-    instance,
-    0,
-    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT,
-    0,
-    0,
-    0,
-    null,
-    "hello vulkan message");
-  printf("after vkDebugReportMessageEXT\n");
+  verbosePrint(instance);
 
-  // verbosePrint(instance);
-
-  DeviceContext deviceContext = selectDevice(instance);
+  selectDevice(instance);
 
   // createSurface(instance, window);
 
@@ -260,16 +248,26 @@ private DeviceContext selectDevice(ref VkInstance instance) {
     &context.logicalDevice
   ));
 
-  VkQueue tmpQueue;
+  vkDebugReportMessageEXT(
+    instance,
+    VK_DEBUG_REPORT_INFORMATION_BIT_EXT,
+    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT,
+    0,
+    0,
+    0,
+    "blubb",
+    "hello vulkan message"
+  );
 
-  printf("before vkGetDeviceQueue\n");
+  loadDeviceLevelFunctions(instance);
+
   vkGetDeviceQueue(
     context.logicalDevice,
     context.graphicsQueueFamilyIndex,
     0,
-    &tmpQueue
+    &context.graphicsQueue
   );
-  printf("after vkGetDeviceQueue\n");
+
   return *context;
 }
 
